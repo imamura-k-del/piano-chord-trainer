@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Piano Chord Trainer - Natural Roots</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .container { background: #313244; padding: 40px; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); text-align: center; width: 95%; max-width: 850px; }
+        #question-label { font-size: 1.1rem; color: #a6adc8; margin-bottom: 8px; letter-spacing: 1px; }
+        #question { font-size: 5rem; font-weight: 800; color: #89b4fa; margin-bottom: 25px; text-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        #message { height: 2.5rem; margin-bottom: 15px; font-size: 1.3rem; font-weight: 600; }
+        
+        .keyboard-container { overflow-x: auto; width: 100%; padding: 20px 0; scrollbar-width: none; }
+        .keyboard { display: flex; justify-content: center; position: relative; height: 200px; padding: 15px; background: #11111b; border-radius: 12px; min-width: 750px; }
+        .key { border: 1px solid #45475a; background: #f5e0dc; width: 42px; height: 100%; border-radius: 0 0 6px 6px; cursor: pointer; color: #1e1e2e; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 12px; font-size: 0.85rem; font-weight: bold; transition: all 0.1s; position: relative; }
+        .key.black { background: #181825; color: #cdd6f4; width: 30px; height: 62%; margin-left: -15px; margin-right: -15px; z-index: 2; border: none; }
+        .key.active { background: #f9e2af !important; transform: translateY(3px); box-shadow: inset 0 4px 8px rgba(0,0,0,0.4); }
+        .key.correct { background: #a6e3a1 !important; color: #1e1e2e; }
+        .key.wrong { background: #f38ba8 !important; color: #1e1e2e; }
+
+        .controls { margin-top: 30px; display: flex; gap: 20px; justify-content: center; }
+        button { padding: 14px 35px; font-size: 1.1rem; cursor: pointer; border: none; border-radius: 12px; font-weight: bold; transition: 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .btn-check { background: #fab387; color: #1e1e2e; }
+        .btn-next { background: #b4befe; color: #1e1e2e; }
+        button:hover { opacity: 0.9; transform: translateY(-2px); }
+        button:active { transform: translateY(0); }
+        .score { margin-top: 25px; font-size: 1.2rem; color: #bac2de; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="question-label">CHORD CHALLENGE</div>
+    <div id="question">--</div>
+    <div id="message">READY?</div>
+
+    <div class="keyboard-container">
+        <div class="keyboard" id="keyboard"></div>
+    </div>
+
+    <div class="controls">
+        <button class="btn-check" onclick="checkAnswer()">回答する</button>
+        <button class="btn-next" onclick="nextQuestion()">次の問題へ</button>
+    </div>
+    <div class="score">Score: <span id="score">0</span></div>
+</div>
+
+
+
+<script>
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const blackIndices = [1, 3, 6, 8, 10];
+    
+    // 幹音（白鍵）のルートリスト
+    const naturalRoots = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+    
+    // 2オクターブ分のデータ
+    const keyboardData = [...noteNames, ...noteNames]; 
+    
+    // コードリスト作成（幹音ルートのみ）
+    const chords = [];
+    naturalRoots.forEach(root => {
+        const i = noteNames.indexOf(root);
+        // Major: 0, 4, 7
+        chords.push({ name: root, notes: [root, noteNames[(i+4)%12], noteNames[(i+7)%12]] });
+        // Minor: 0, 3, 7
+        chords.push({ name: root + "m", notes: [root, noteNames[(i+3)%12], noteNames[(i+7)%12]] });
+    });
+
+    let currentChord = {};
+    let selectedKeyIndices = [];
+    let score = 0;
+
+    const keyboard = document.getElementById('keyboard');
+    keyboardData.forEach((note, index) => {
+        const keyDiv = document.createElement('div');
+        const isBlack = blackIndices.includes(index % 12);
+        keyDiv.className = `key ${isBlack ? 'black' : ''}`;
+        keyDiv.dataset.note = note;
+        keyDiv.dataset.index = index;
+        keyDiv.innerText = note;
+        keyDiv.onclick = () => toggleKey(keyDiv, index);
+        keyboard.appendChild(keyDiv);
+    });
+
+    function toggleKey(element, index) {
+        if (selectedKeyIndices.includes(index)) {
+            element.classList.remove('active');
+            selectedKeyIndices = selectedKeyIndices.filter(i => i !== index);
+        } else {
+            element.classList.add('active');
+            selectedKeyIndices.push(index);
+        }
+    }
+
+    function nextQuestion() {
+        currentChord = chords[Math.floor(Math.random() * chords.length)];
+        document.getElementById('question').innerText = currentChord.name;
+        document.getElementById('message').innerText = "構成音をタップしてください";
+        document.getElementById('message').style.color = "#cdd6f4";
+        selectedKeyIndices = [];
+        resetKeyClasses();
+    }
+
+    function resetKeyClasses() {
+        document.querySelectorAll('.key').forEach(k => {
+            k.classList.remove('active', 'correct', 'wrong');
+        });
+    }
+
+    function checkAnswer() {
+        const selectedNoteNames = [...new Set(selectedKeyIndices.map(i => keyboardData[i]))];
+        const isCorrect = selectedNoteNames.length === 3 && 
+                          selectedNoteNames.every(n => currentChord.notes.includes(n));
+
+        const msg = document.getElementById('message');
+        if (isCorrect) {
+            msg.innerText = "✨ 正解！ナイスです！";
+            msg.style.color = "#a6e3a1";
+            score++;
+            document.getElementById('score').innerText = score;
+            highlightKeys('correct');
+        } else {
+            msg.innerText = "❌ 違いま〜す！ 正解は: " + currentChord.notes.join(' ');
+            msg.style.color = "#f38ba8";
+            highlightKeys('wrong');
+        }
+    }
+
+    function highlightKeys(className) {
+        document.querySelectorAll('.key').forEach(k => {
+            if (currentChord.notes.includes(k.dataset.note)) {
+                k.classList.add(className);
+            }
+        });
+    }
+
+    nextQuestion();
+</script>
+
+</body>
+</html>
